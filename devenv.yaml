@@ -1,0 +1,19 @@
+# Inputs and global Nix settings for the pysci-ai devenv.
+#
+# nixpkgs tracks unstable so recent native libraries are available.
+# nixpkgs-python supplies exact CPython builds, which is what lets
+# languages.python.version pin 3.13 (or 3.14) precisely rather than
+# taking whatever CPython nixpkgs happens to ship.
+#
+# allow_unfree (snake_case: devenv 2.x renamed the old allowUnfree key)
+# is insurance. Nothing in this environment is unfree today, and it
+# keeps a future unfree addition from failing the build.
+inputs:
+  nixpkgs:
+    url: github:NixOS/nixpkgs/nixpkgs-unstable
+  nixpkgs-python:
+    url: github:cachix/nixpkgs-python
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+allow_unfree: true
