@@ -1,4 +1,4 @@
-{ pkgs, lib, config, ... }:
+{ pkgs, lib, config, inputs, ... }:
 
 let
   # ── PYTHON VERSION ─────────────────────────────────────────────────
@@ -11,7 +11,7 @@ let
 
   # ── NATIVE LIBRARIES ───────────────────────────────────────────────
   # pip-built extensions link against these when a wheel builds from
-  # source. On macOS arm64 nearly every package in requirements.txt ships
+  # source. On macOS arm64 nearly every package in the requirements ships
   # a prebuilt wheel with its dylibs bundled, so this list is for the
   # occasional source build, and no runtime library path is needed
   # (DYLD_* variables would fight SIP and the bundled-dylib wheels).
@@ -31,7 +31,7 @@ let
 in
 {
   # Build toolchain plus the two Python project managers. uv and poetry
-  # live here, NOT in requirements.txt, on purpose. This devenv shell is
+  # live here, NOT in the pip requirements, on purpose. This devenv shell is
   # the fat base environment holding every scientific and AI library. An
   # individual project created inside it uses uv or poetry with a portable
   # lockfile, so the project reproduces with `uv sync` or `poetry install`
@@ -54,8 +54,8 @@ in
     # the check phase rather than pinning nixpkgs back.
     (poetry.overridePythonAttrs (old: { doCheck = false; }))
 
-    # JVM for the kotlin-jupyter-kernel in requirements.txt. That kernel
-    # is a pip package that shells out to `java`, and this shell claims to
+    # JVM for the kotlin-jupyter-kernel in the core requirements. That
+    # kernel is a pip package that shells out to `java`, and this shell claims to
     # be self-contained: without this line the kernel would die at run
     # time on any machine with no stray JVM on PATH. 21 to match the JDK
     # the Linux box standardizes on, so notebooks agree across machines.
@@ -71,12 +71,23 @@ in
     manylinux.enable = false;
 
     # The base environment. devenv creates the venv under $DEVENV_STATE,
-    # activates it on shell entry, and runs pip against requirements.txt.
-    # It tracks a checksum of the file and the interpreter, so pip only
-    # reruns when one of them actually changes.
+    # activates it on shell entry, and runs pip against the requirements
+    # below. It tracks a checksum of the content and the interpreter, so
+    # pip only reruns when one of them actually changes.
+    #
+    # The package lists live in the pysci-core input, split into a
+    # cross-platform core plus one small delta per platform. The local
+    # requirements.txt is gone so there is no second place to edit and
+    # nothing to drift. Change packages over there, then `devenv update`
+    # here pulls the new pin. The concatenation is plain string glue:
+    # pip reads the core list, then the darwin delta carrying the plain
+    # onnxruntime and faiss-cpu wheel names.
     venv = {
       enable = true;
-      requirements = ./requirements.txt;
+      requirements =
+        builtins.readFile "${inputs.pysci-core}/requirements-core.txt"
+        + "\n"
+        + builtins.readFile "${inputs.pysci-core}/requirements-darwin.txt";
     };
   };
 
